@@ -43,9 +43,9 @@ KIND = _NamedInts(toggle=0x01, choice=0x02, range=0x04, map_choice=0x0A, multipl
 class Setting(object):
     """A setting descriptor.
     Needs to be instantiated for each specific device."""
-    __slots__ = ('name', 'label', 'description', 'kind', 'device_kind', 'feature', '_rw', '_validator', '_device', '_value')
+    __slots__ = ('name', 'label', 'description', 'kind', 'device_kind', 'feature', '_rw', '_validator', '_device', '_value','_persister')
 
-    def __init__(self, name, rw, validator, kind=None, label=None, description=None, device_kind=None, feature=None):
+    def __init__(self, name, rw, validator, kind=None, label=None, description=None, device_kind=None, feature=None, persister=True):
         assert name
         self.name = name
         self.label = label or name
@@ -55,6 +55,7 @@ class Setting(object):
 
         self._rw = rw
         self._validator = validator
+        self._persister = persister
 
         assert kind is None or kind & validator.kind != 0
         self.kind = kind or validator.kind
@@ -98,12 +99,12 @@ class Setting(object):
         if _log.isEnabledFor(_DEBUG):
             _log.debug('%s: settings read %r from %s', self.name, self._value, self._device)
 
-        if self._value is None and self._device.persister:
+        if self._value is None and self._device.persister and self._persister:
             # We haven't read a value from the device yet,
             # maybe we have something in the configuration.
             self._value = self._device.persister.get(self.name)
 
-        if cached and self._value is not None:
+        if cached and self._value is not None and self._persister:
             if self._device.persister and self.name not in self._device.persister:
                 # If this is a new device (or a new setting for an old device),
                 # make sure to save its current value for the next time.
@@ -114,7 +115,7 @@ class Setting(object):
             reply = self._rw.read(self._device)
             if reply:
                 self._value = self._validator.validate_read(reply)
-            if self._device.persister and self.name not in self._device.persister:
+            if self._device.persister and self.name not in self._device.persister and self._persister   :
                 # Don't update the persister if it already has a value,
                 # otherwise the first read might overwrite the value we wanted.
                 self._device.persister[self.name] = self._value
@@ -133,7 +134,7 @@ class Setting(object):
             # This way even if the device is offline or some other error occurs,
             # the last value we've tried to write is remembered in the configuration.
             self._value = value
-            if self._device.persister:
+            if self._device.persister and self._persister:
                 self._device.persister[self.name] = value
 
             current_value = None
@@ -444,9 +445,9 @@ class FeatureRW(object):
         assert self.feature is not None
         return device.feature_request(self.feature, self.read_fnid)
 
-    def write(self, device, data_bytes):
+    def write(self, device, data_bytes, no_reply=False):
         assert self.feature is not None
-        return device.feature_request(self.feature, self.write_fnid, data_bytes)
+        return device.feature_request(self.feature, self.write_fnid, data_bytes, no_reply)
 
 
 class FeatureRWMap(FeatureRW):

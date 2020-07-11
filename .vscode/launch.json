@@ -1,0 +1,23 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Solaar CLI",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/bin/solaar",
+            "args": [ "config", "k850", "change-host", "1"],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: Solaar",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/bin/solaar",
+            "console": "integratedTerminal"
+        }
+    ]
+}

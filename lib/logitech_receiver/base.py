@@ -312,7 +312,7 @@ del namedtuple
 #
 
 
-def request(handle, devnumber, request_id, *params):
+def request(handle, devnumber, request_id, *params, no_reply=False):
     """Makes a feature call to a device and waits for a matching reply.
 
     This function will wait for a matching reply indefinitely.
@@ -353,7 +353,6 @@ def request(handle, devnumber, request_id, *params):
     notifications_hook = getattr(handle, 'notifications_hook', None)
     _skip_incoming(handle, ihandle, notifications_hook)
     write(ihandle, devnumber, request_data)
-
     # we consider timeout from this point
     request_started = _timestamp()
     delta = 0
@@ -428,6 +427,8 @@ def request(handle, devnumber, request_id, *params):
         delta = _timestamp() - request_started
         # if _log.isEnabledFor(_DEBUG):
         #     _log.debug("(%s) still waiting for reply, delta %f", handle, delta)
+        if no_reply:
+            return
 
     _log.warn(
         'timeout (%0.2f/%0.2f) on device %d request {%04X} params [%s]', delta, timeout, devnumber, request_id,

@@ -281,13 +281,15 @@ def feature_range(
     bytes_count=None,
     label=None,
     description=None,
-    device_kind=None
+    device_kind=None,
+    persister=True
 ):
     validator = _RangeV(min_value, max_value, bytes_count=bytes_count)
     if rw is None:
         rw = _FeatureRW(feature, read_function_id, write_function_id)
     return _Setting(
-        name, rw, validator, feature=feature, kind=_KIND.range, label=label, description=description, device_kind=device_kind
+        name, rw, validator, feature=feature, kind=_KIND.range, label=label, description=description, device_kind=device_kind,
+        persister=persister
     )
 
 
@@ -342,6 +344,11 @@ _REPROGRAMMABLE_KEYS = (
     _('Changing important actions (such as for the left mouse button) can result in an unusable system.')
 )
 _DISABLE_KEYS = ('disable-keyboard-keys', _('Disable keys'), _('Disable specific keyboard keys.'))
+
+_CHANGE_HOST = ('change-host', _("Change Host"),
+                            _("Automatically switch the device host\n"
+                            "The hose vary between 1 and 3"))
+
 
 #
 #
@@ -654,6 +661,38 @@ def _feature_disable_keyboard_keys():
         device_kind=(_DK.keyboard, )
     )
 
+def _feature_change_host():
+    class _ChangeHostRW(_FeatureRW):
+        last_data = b'\x01'
+        def __init__(self, feature):
+            super(_ChangeHostRW, self).__init__(feature)
+
+        def read(self, device):
+            #return  b'\x02'
+            value = super(_ChangeHostRW, self).read(device)
+            if value == None:
+                return self.last_data
+            else:
+                return _int2bytes(value[1]+1)
+
+        def write(self, device, data_bytes):
+            self.last_data = data_bytes
+            data = _int2bytes(data_bytes[0]-1)
+            if data == b'':
+                data = b'\x00'
+            super(_ChangeHostRW, self).write(device, data, True)
+            return b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+    ret = feature_range(_CHANGE_HOST[0], _F.CHANGE_HOST, 0x01, 0x03,
+                    read_function_id=0x00,
+                    write_function_id=0x10,
+                    bytes_count=1,
+                    rw=_ChangeHostRW(_F.CHANGE_HOST),
+                    label=_CHANGE_HOST[1], 
+                    description=_CHANGE_HOST[2],
+                    device_kind=(_DK.mouse, _DK.keyboard),
+                    persister=False)
+    return ret
 
 #
 #
@@ -681,6 +720,7 @@ _SETTINGS_TABLE = [
     _S(_BACKLIGHT[0], _F.BACKLIGHT2, _feature_backlight2),
     _S(_REPROGRAMMABLE_KEYS[0], _F.REPROG_CONTROLS_V4, _feature_reprogrammable_keys),
     _S(_DISABLE_KEYS[0], _F.KEYBOARD_DISABLE_KEYS, _feature_disable_keyboard_keys),
+    _S(_CHANGE_HOST[0], _F.CHANGE_HOST, _feature_change_host),
 ]
 
 _SETTINGS_LIST = namedtuple('_SETTINGS_LIST', [s[4] for s in _SETTINGS_TABLE])
